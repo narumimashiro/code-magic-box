@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -68,46 +66,133 @@ export class UsersService {
 
   async *generateStreamingCsvData(batchSize: number = 1000) {
     console.log('=== ストリーミングCSV生成開始 ===');
-    
+
     let offset = 0;
     let isFirstBatch = true;
-    
+
     while (true) {
-      
       // バッチでデータを取得
       const users = await this.findBatch(offset, batchSize);
-      
+
       // データがない場合は終了
       if (users.length === 0) {
         console.log('データ取得完了: 件数 0');
         break;
       }
-      
-     
+
       let csvChunk = '';
-      
+
       // 最初のバッチの場合はヘッダーを追加
       if (isFirstBatch) {
         csvChunk += this.generateCsvHeader();
         isFirstBatch = false;
         console.log('CSVヘッダーを追加');
       }
-      
+
       // データ行を追加
       csvChunk += this.convertUsersToCSVRows(users);
-      
+
       // CSVチャンクを返却
       yield csvChunk;
-      
+
       // 次のバッチの準備
       offset += batchSize;
-      
+
       // バッチサイズより少ない場合は最後のバッチ
       if (users.length < batchSize) {
         console.log('最後のバッチを処理完了');
         break;
       }
     }
-    
+  }
+
+  // no use npm install library
+
+  private escapeCsvValue(value: string | number | null | undefined): string {
+    if (value === null || value === undefined) {
+      return '';
+    }
+
+    const stringValue = String(value);
+
+    // カンマ、改行、ダブルクォートが含まれている場合はダブルクォートで囲む
+    if (
+      stringValue.includes(',') ||
+      stringValue.includes('\n') ||
+      stringValue.includes('\r') ||
+      stringValue.includes('"')
+    ) {
+      // ダブルクォートをエスケープ（""に変換）してから全体をダブルクォートで囲む
+      return '"' + stringValue.replace(/"/g, '""') + '"';
+    }
+
+    return stringValue;
+  }
+
+  generateCsvHeaderVersion2(): string {
+    const headers = ['ID', '名前', 'メールアドレス', '年齢', '作成日時'];
+    return (
+      headers.map((header) => this.escapeCsvValue(header)).join(',') + '\n'
+    );
+  }
+
+  convertUsersToCSVRowsVersion2(users: UserEntity[]): string {
+    return (
+      users
+        .map((user) => {
+          const row = [
+            user.id,
+            user.name,
+            user.email,
+            user.age || '',
+            user.updatedAt.toISOString().slice(0, 19).replace('T', ' '),
+          ];
+
+          return row.map((value) => this.escapeCsvValue(value)).join(',');
+        })
+        .join('\n') + '\n'
+    );
+  }
+
+  async *generateStreamingCsvDataVersion2(batchSize: number = 1000) {
+    console.log('=== ストリーミングCSV生成開始 ===');
+
+    let offset = 0;
+    let isFirstBatch = true;
+
+    while (true) {
+      // バッチでデータを取得
+      const users = await this.findBatch(offset, batchSize);
+
+      // データがない場合は終了
+      if (users.length === 0) {
+        console.log('データ取得完了: 件数 0');
+        break;
+      }
+
+      let csvChunk = '';
+
+      // 最初のバッチの場合はヘッダーを追加
+      if (isFirstBatch) {
+        csvChunk += this.generateCsvHeader();
+        isFirstBatch = false;
+        console.log('CSVヘッダーを追加');
+      }
+
+      // データ行を追加
+      csvChunk += this.convertUsersToCSVRows(users);
+
+      // CSVチャンクを返却
+      yield csvChunk;
+
+      // 次のバッチの準備
+      offset += batchSize;
+
+      // バッチサイズより少ない場合は最後のバッチ
+      if (users.length < batchSize) {
+        console.log('最後のバッチを処理完了');
+        break;
+      }
+    }
   }
 }
