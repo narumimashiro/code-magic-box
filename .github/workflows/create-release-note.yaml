@@ -172,5 +172,6 @@ jobs:
           config-name: release-drafter.yaml
           commitish: release
           version: ${{ needs.check-version.outputs.new_version }}
+          publish: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
