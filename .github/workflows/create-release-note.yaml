@@ -47,6 +47,7 @@ jobs:
             echo "Previous commit version: $OLD_VERSION"
             echo "Current commit version: $NEW_VERSION"
           fi
+
           if [ "$NEW_VERSION" != "$OLD_VERSION" ]; then
             echo "version_changed=true" >> $GITHUB_OUTPUT
             echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
@@ -72,6 +73,7 @@ jobs:
             echo "version_changed=false" >> $GITHUB_OUTPUT
             echo "🎹 Version not changed"
           fi
+
   add-label-to-pr:
     needs: check-version
     if: github.event_name == 'pull_request'
@@ -86,14 +88,57 @@ jobs:
         with:
           script: |
             const versionType = '${{ needs.check-version.outputs.version_type }}';
-            // Delete existing version labels (major, minor, patch)
+
+            const labelConfig = {
+              'major': {
+                name: 'Major VerUp',
+                color: '4455dd',
+                description: 'Major version update'
+              },
+              'minor': {
+                name: 'Minor VerUp',
+                color: '884499',
+                description: 'Minor version update'
+              },
+              'patch': {
+                name: 'Patch VerUp',
+                color: '88dd44',
+                description: 'Patch version update'
+              }
+            };
+
+            const labelInfo = labelConfig[versionType];
+            const allVersionLabels = Object.values(labelConfig).map(config => config.name);
+
+            try {
+              await github.rest.issues.updateLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: labelInfo.name,
+                color: labelInfo.color,
+                description: labelInfo.description
+              });
+            } catch (error) {
+              if (error.status === 404) {
+                await github.rest.issues.createLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: labelInfo.name,
+                  color: labelInfo.color,
+                  description: labelInfo.description
+                });
+              }
+            }
+
+            // Delete existing version labels (Major VerUp, Minor VerUp, patch)
             const existingLabels = await github.rest.issues.listLabelsOnIssue({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number
             });
+
             for (const label of existingLabels.data) {
-              if (['major', 'minor', 'patch'].includes(label.name)) {
+              if (allVersionLabels.includes(label.name)) {
                 await github.rest.issues.removeLabel({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
@@ -102,6 +147,7 @@ jobs:
                 });
               }
             }
+
             // Add new version label
             await github.rest.issues.addLabels({
               owner: context.repo.owner,
@@ -109,6 +155,7 @@ jobs:
               issue_number: context.issue.number,
               labels: [versionType]
             });
+
   release-draft:
     needs: check-version
     if: needs.check-version.outputs.version_changed == 'true' && github.event_name == 'push'
