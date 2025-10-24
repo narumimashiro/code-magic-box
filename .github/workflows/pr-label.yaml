@@ -1,0 +1,9 @@
+name: Use Common Workflow
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  call-common:
+    uses: narumimashiro/akashic-records/.github/workflows/tag.yml@main
