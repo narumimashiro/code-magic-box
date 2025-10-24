@@ -11,4 +11,7 @@ permissions:
 
 jobs:
   call-common:
+    permissions:
+      issues: write
+      pull-requests: write
     uses: narumimashiro/akashic-records/.github/workflows/tag.yml@main
